@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 *.pyo
 .DS_Store
+last_collected.json
+last_output.json
+test_report.json
+improvement_log.txt

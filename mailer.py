@@ -2,56 +2,37 @@ import resend
 from datetime import date
 from config import RESEND_API_KEY, SENDER_EMAIL, RECEIVER_EMAIL
 
-
-def _parse_idea(block: str) -> dict:
-    """아이디어 블록을 {label: value} 딕셔너리로 파싱."""
-    result = {}
-    current_label = None
-    current_lines = []
-
-    for line in block.splitlines():
-        if ":" in line:
-            # 새 레이블 시작 — 이전 레이블 저장
-            if current_label:
-                result[current_label] = " ".join(current_lines).strip()
-            current_label, _, rest = line.partition(":")
-            current_label = current_label.strip()
-            current_lines = [rest.strip()] if rest.strip() else []
-        elif current_label and line.strip():
-            current_lines.append(line.strip())
-
-    if current_label:
-        result[current_label] = " ".join(current_lines).strip()
-
-    return result
-
-
-# 카드에 표시할 필드와 순서 정의
-CARD_FIELDS = [
-    ("아이디어명",       "#1a1a1a", "18px", "700"),  # (필드명, 색상, 폰트크기, 굵기)
-    ("한 줄 설명",       "#444444", "14px", "400"),
-    ("발견 출처",        "#888888", "13px", "400"),
-    ("한국 시장 적합성", "#222222", "14px", "400"),
-    ("유사 서비스",      "#222222", "14px", "400"),
-    ("1인 개발 가능 여부", "#222222", "14px", "400"),
-    ("예상 수익 모델",   "#222222", "14px", "400"),
+# 표시 순서: (JSON 키, 한국어 레이블, 색상, 폰트크기, 굵기)
+FIELD_MAP = [
+    ("title",         "아이디어명",          "#1a1a1a", "18px", "700"),
+    ("summary",       "한 줄 설명",          "#444444", "14px", "400"),
+    ("source",        "발견 출처",           "#888888", "13px", "400"),
+    ("insight",       "핵심 인사이트",       "#222222", "14px", "400"),
+    ("korea_fit",     "한국 시장 적합성",    "#222222", "14px", "400"),
+    ("competitors",   "유사 서비스",         "#222222", "14px", "400"),
+    ("solo_possible", "1인 개발 가능 여부",  "#222222", "14px", "400"),
+    ("mvp",           "MVP 핵심 기능",       "#222222", "14px", "400"),
+    ("revenue",       "예상 수익 모델",      "#222222", "14px", "400"),
 ]
 
-LABEL_STYLE = "font-size:11px;font-weight:600;color:#aaaaaa;text-transform:uppercase;letter-spacing:0.6px;margin:0 0 3px;"
+LABEL_STYLE = (
+    "font-size:11px;font-weight:600;color:#aaaaaa;"
+    "text-transform:uppercase;letter-spacing:0.6px;margin:0 0 3px;"
+)
 DIVIDER_STYLE = "border:none;border-top:1px solid #f0f0f0;margin:12px 0;"
 
 
-def _render_card(idx: int, fields: dict) -> str:
+def _render_card(idx: int, idea: dict) -> str:
     rows = []
-    for i, (field, color, size, weight) in enumerate(CARD_FIELDS):
-        value = fields.get(field, "")
+    for i, (key, label, color, size, weight) in enumerate(FIELD_MAP):
+        value = str(idea.get(key, "")).strip()
         if not value:
             continue
         divider = f'<hr style="{DIVIDER_STYLE}">' if i > 0 else ""
         rows.append(f"""
         <div style="padding:10px 20px;">
           {divider}
-          <p style="{LABEL_STYLE}">{field}</p>
+          <p style="{LABEL_STYLE}">{label}</p>
           <p style="margin:0;font-size:{size};font-weight:{weight};color:{color};line-height:1.6;">{value}</p>
         </div>""")
 
@@ -64,14 +45,11 @@ def _render_card(idx: int, fields: dict) -> str:
     </div>"""
 
 
-def _build_html(analysis: str) -> str:
-    ideas = [block.strip() for block in analysis.split("---") if block.strip()]
-
-    idea_sections_html = ""
-    for idx, idea in enumerate(ideas, start=1):
-        fields = _parse_idea(idea)
-        idea_sections_html += _render_card(idx, fields)
-
+def _build_html(data: dict) -> str:
+    ideas = data.get("ideas", [])
+    idea_sections_html = "".join(
+        _render_card(idx, idea) for idx, idea in enumerate(ideas, start=1)
+    )
     today = date.today().strftime("%Y년 %m월 %d일")
 
     return f"""<!DOCTYPE html>
@@ -95,7 +73,6 @@ def _build_html(analysis: str) -> str:
               오늘 트렌드에서 발굴한 서비스 아이디어예요.<br>
               1인 창업 관점으로 분석했습니다.
             </p>
-
             {idea_sections_html}
           </div>
 
@@ -112,7 +89,7 @@ def _build_html(analysis: str) -> str:
 </html>"""
 
 
-def send(analysis: str) -> None:
+def send(data: dict) -> None:
     resend.api_key = RESEND_API_KEY
 
     today_str = date.today().strftime("%Y-%m-%d")
@@ -123,7 +100,7 @@ def send(analysis: str) -> None:
             "from": SENDER_EMAIL,
             "to": [RECEIVER_EMAIL],
             "subject": subject,
-            "html": _build_html(analysis),
+            "html": _build_html(data),
         }
         response = resend.Emails.send(params)
         print(f"[SUCCESS] 메일 발송 완료 → {RECEIVER_EMAIL} (id: {response['id']})")
