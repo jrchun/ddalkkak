@@ -13,6 +13,7 @@ FIELD_MAP = [
     ("solo_possible", "1인 개발 가능 여부",  "#222222", "14px", "400"),
     ("mvp",           "MVP 핵심 기능",       "#222222", "14px", "400"),
     ("revenue",       "예상 수익 모델",      "#222222", "14px", "400"),
+    ("source_link",   "원문 링크",           "#3b82f6", "13px", "400"),
 ]
 
 LABEL_STYLE = (
@@ -29,11 +30,21 @@ def _render_card(idx: int, idea: dict) -> str:
         if not value:
             continue
         divider = f'<hr style="{DIVIDER_STYLE}">' if i > 0 else ""
+        if key == "source_link":
+            content = (
+                f'<a href="{value}" style="color:{color};font-size:{size};'
+                f'text-decoration:none;word-break:break-all;">원문 보기 →</a>'
+            )
+        else:
+            content = (
+                f'<p style="margin:0;font-size:{size};font-weight:{weight};'
+                f'color:{color};line-height:1.6;">{value}</p>'
+            )
         rows.append(f"""
         <div style="padding:10px 20px;">
           {divider}
           <p style="{LABEL_STYLE}">{label}</p>
-          <p style="margin:0;font-size:{size};font-weight:{weight};color:{color};line-height:1.6;">{value}</p>
+          {content}
         </div>""")
 
     return f"""

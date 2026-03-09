@@ -8,7 +8,7 @@ CACHE_FILE = "last_output.json"
 REPORT_FILE = "test_report.json"
 
 REQUIRED_FIELDS = [
-    "title", "summary", "source", "insight",
+    "title", "summary", "source", "source_link", "insight",
     "korea_fit", "competitors", "solo_possible", "mvp", "revenue",
 ]
 
