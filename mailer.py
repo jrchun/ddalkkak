@@ -3,40 +3,74 @@ from datetime import date
 from config import RESEND_API_KEY, SENDER_EMAIL, RECEIVER_EMAIL
 
 
+def _parse_idea(block: str) -> dict:
+    """아이디어 블록을 {label: value} 딕셔너리로 파싱."""
+    result = {}
+    current_label = None
+    current_lines = []
+
+    for line in block.splitlines():
+        if ":" in line:
+            # 새 레이블 시작 — 이전 레이블 저장
+            if current_label:
+                result[current_label] = " ".join(current_lines).strip()
+            current_label, _, rest = line.partition(":")
+            current_label = current_label.strip()
+            current_lines = [rest.strip()] if rest.strip() else []
+        elif current_label and line.strip():
+            current_lines.append(line.strip())
+
+    if current_label:
+        result[current_label] = " ".join(current_lines).strip()
+
+    return result
+
+
+# 카드에 표시할 필드와 순서 정의
+CARD_FIELDS = [
+    ("아이디어명",       "#1a1a1a", "18px", "700"),  # (필드명, 색상, 폰트크기, 굵기)
+    ("한 줄 설명",       "#444444", "14px", "400"),
+    ("발견 출처",        "#888888", "13px", "400"),
+    ("한국 시장 적합성", "#222222", "14px", "400"),
+    ("유사 서비스",      "#222222", "14px", "400"),
+    ("1인 개발 가능 여부", "#222222", "14px", "400"),
+    ("예상 수익 모델",   "#222222", "14px", "400"),
+]
+
+LABEL_STYLE = "font-size:11px;font-weight:600;color:#aaaaaa;text-transform:uppercase;letter-spacing:0.6px;margin:0 0 3px;"
+DIVIDER_STYLE = "border:none;border-top:1px solid #f0f0f0;margin:12px 0;"
+
+
+def _render_card(idx: int, fields: dict) -> str:
+    rows = []
+    for i, (field, color, size, weight) in enumerate(CARD_FIELDS):
+        value = fields.get(field, "")
+        if not value:
+            continue
+        divider = f'<hr style="{DIVIDER_STYLE}">' if i > 0 else ""
+        rows.append(f"""
+        <div style="padding:10px 20px;">
+          {divider}
+          <p style="{LABEL_STYLE}">{field}</p>
+          <p style="margin:0;font-size:{size};font-weight:{weight};color:{color};line-height:1.6;">{value}</p>
+        </div>""")
+
+    return f"""
+    <div style="margin-bottom:24px;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden;">
+      <div style="background:#1a1a1a;padding:10px 20px;">
+        <span style="font-size:11px;font-weight:600;color:#888888;letter-spacing:1px;">IDEA {idx}</span>
+      </div>
+      {"".join(rows)}
+    </div>"""
+
+
 def _build_html(analysis: str) -> str:
-    # "---" 구분자로 아이디어 분리
     ideas = [block.strip() for block in analysis.split("---") if block.strip()]
 
     idea_sections_html = ""
     for idx, idea in enumerate(ideas, start=1):
-        rows_html = ""
-        for line in idea.splitlines():
-            if ":" not in line:
-                continue
-            label, _, value = line.partition(":")
-            label = label.strip()
-            value = value.strip()
-            if not label or not value:
-                continue
-            rows_html += f"""
-            <tr>
-              <td style="padding:8px 12px;font-size:13px;color:#888;white-space:nowrap;vertical-align:top;width:130px;">
-                {label}
-              </td>
-              <td style="padding:8px 12px;font-size:14px;color:#222;line-height:1.6;">
-                {value}
-              </td>
-            </tr>"""
-
-        idea_sections_html += f"""
-        <div style="margin-bottom:28px;border:1px solid #e8e8e8;border-radius:10px;overflow:hidden;">
-          <div style="background:#f5f5f5;padding:10px 16px;font-size:13px;font-weight:600;color:#555;">
-            아이디어 {idx}
-          </div>
-          <table style="width:100%;border-collapse:collapse;">
-            {rows_html}
-          </table>
-        </div>"""
+        fields = _parse_idea(idea)
+        idea_sections_html += _render_card(idx, fields)
 
     today = date.today().strftime("%Y년 %m월 %d일")
 
