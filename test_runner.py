@@ -2,6 +2,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 CACHE_FILE = "last_output.json"
 REPORT_FILE = "test_report.json"
@@ -131,7 +132,7 @@ def run_tests() -> dict:
     return _save_report(checks, data)
 
 
-def _save_report(checks: list[dict], data: dict | None) -> dict:
+def _save_report(checks: list[dict], data: Optional[dict]) -> dict:
     ideas = data.get("ideas", []) if data else []
     passed = all(c["passed"] for c in checks)
 
