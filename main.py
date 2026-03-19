@@ -22,7 +22,7 @@ def main():
     start = time.time()
 
     # ── 1. 수집 ─────────────────────────────────────────────────────────
-    print("[1/4] 뉴스 및 레딧 수집 중...")
+    print("[1/4] 레딧 상위 포스트 수집 중...")
     try:
         collected = collect()
     except Exception as e:
@@ -30,10 +30,9 @@ def main():
         sys.exit(1)
 
     reddit_count = len(collected.get("reddit", []))
-    news_count = len(collected.get("news", []))
-    print(f"      레딧 {reddit_count}건, 뉴스 {news_count}건 수집 완료")
+    print(f"      레딧 {reddit_count}건 수집 완료")
 
-    if reddit_count + news_count == 0:
+    if reddit_count == 0:
         print("[ERROR] 수집된 데이터가 없어 파이프라인을 종료합니다.")
         sys.exit(1)
 
