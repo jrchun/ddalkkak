@@ -72,17 +72,6 @@ def _build_user_message(data: dict) -> str:
             )
         sections.append("\n".join(lines))
 
-    news_items = data.get("news", [])
-    if news_items:
-        lines = ["[뉴스]"]
-        for item in news_items:
-            lines.append(
-                f"- {item['title']} ({item['published']})\n"
-                f"  URL: {item['link']}\n"
-                f"  {item['summary']}"
-            )
-        sections.append("\n".join(lines))
-
     if not sections:
         return "수집된 데이터가 없습니다."
 
@@ -92,11 +81,14 @@ def _build_user_message(data: dict) -> str:
 def analyze(data: dict) -> dict:
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
+    reddit_items = sorted(data.get("reddit", []), key=lambda x: x.get("score", 0), reverse=True)[:30]
+    filtered_data = {"reddit": reddit_items}
+
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=1500,
+        max_tokens=4000,
         system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": _build_user_message(data)}],
+        messages=[{"role": "user", "content": _build_user_message(filtered_data)}],
     )
 
     result = _extract_json(message.content[0].text)
