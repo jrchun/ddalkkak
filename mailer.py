@@ -1,6 +1,16 @@
+import re
 import resend
 from datetime import date
 from config import RESEND_API_KEY, SENDER_EMAIL, RECEIVER_EMAIL
+
+
+def _strip_markdown(text: str) -> str:
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    text = re.sub(r'\*(.+?)\*', r'\1', text)
+    text = text.replace("**", "").replace("*", "")
+    text = re.sub(r'`(.+?)`', r'\1', text)
+    text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE)
+    return text.strip()
 
 # 표시 순서: (JSON 키, 한국어 레이블, 색상, 폰트크기, 굵기)
 FIELD_MAP = [
@@ -26,7 +36,7 @@ DIVIDER_STYLE = "border:none;border-top:1px solid #f0f0f0;margin:12px 0;"
 def _render_card(idx: int, idea: dict) -> str:
     rows = []
     for i, (key, label, color, size, weight) in enumerate(FIELD_MAP):
-        value = str(idea.get(key, "")).strip()
+        value = _strip_markdown(str(idea.get(key, "")))
         if not value:
             continue
         divider = f'<hr style="{DIVIDER_STYLE}">' if i > 0 else ""
