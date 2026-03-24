@@ -52,37 +52,30 @@ def _extract_json(text: str) -> dict:
 
 
 def _build_user_message(data: dict) -> str:
-    sections = []
-
     reddit_items = data.get("reddit", [])
-    if reddit_items:
-        lines = ["[레딧 게시물]"]
-        for item in reddit_items:
-            lines.append(
-                f"- [{item['subreddit']}] {item['title']} "
-                f"(score: {item['score']}, comments: {item['num_comments']})\n"
-                f"  URL: {item['permalink']}\n"
-                f"  {item['selftext']}"
-            )
-        sections.append("\n".join(lines))
-
-    if not sections:
+    if not reddit_items:
         return "수집된 데이터가 없습니다."
 
-    return "\n\n".join(sections)
+    lines = ["[레딧 게시물]"]
+    for item in reddit_items:
+        lines.append(
+            f"- [{item['subreddit']}] {item['title']} "
+            f"(score: {item['score']}, comments: {item['num_comments']})\n"
+            f"  URL: {item['permalink']}\n"
+            f"  {item['selftext']}"
+        )
+
+    return "\n".join(lines)
 
 
 def analyze(data: dict) -> dict:
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-    reddit_items = sorted(data.get("reddit", []), key=lambda x: x.get("score", 0), reverse=True)[:30]
-    filtered_data = {"reddit": reddit_items}
-
     message = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-haiku-4-5-20251001",
         max_tokens=4000,
         system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": _build_user_message(filtered_data)}],
+        messages=[{"role": "user", "content": _build_user_message(data)}],
     )
 
     raw_text = message.content[0].text

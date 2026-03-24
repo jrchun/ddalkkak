@@ -66,11 +66,46 @@ def _render_card(idx: int, idea: dict) -> str:
     </div>"""
 
 
-def _build_html(data: dict) -> str:
+def _render_raw_data(raw_items: list[dict]) -> str:
+    if not raw_items:
+        return ""
+
+    rows = []
+    for item in raw_items:
+        title = item.get("title", "(제목 없음)")
+        sub = item.get("subreddit", "")
+        score = item.get("score", 0)
+        comments = item.get("num_comments", 0)
+        permalink = item.get("permalink", "")
+        selftext = (item.get("selftext") or "")[:200]
+        if selftext:
+            selftext = selftext.replace("\n", " ")
+
+        rows.append(f"""
+        <tr style="border-bottom:1px solid #f0f0f0;">
+          <td style="padding:8px 12px;font-size:12px;color:#666;vertical-align:top;white-space:nowrap;">r/{sub}</td>
+          <td style="padding:8px 12px;font-size:12px;vertical-align:top;">
+            <a href="{permalink}" style="color:#3b82f6;text-decoration:none;font-weight:600;">{title}</a>
+            {"<br><span style='color:#999;font-size:11px;'>" + selftext + "...</span>" if selftext else ""}
+          </td>
+          <td style="padding:8px 12px;font-size:12px;color:#888;text-align:right;vertical-align:top;white-space:nowrap;">{score} / {comments}</td>
+        </tr>""")
+
+    return f"""
+    <div style="margin-top:32px;border-top:2px solid #e8e8e8;padding-top:24px;">
+      <p style="font-size:13px;font-weight:700;color:#aaaaaa;letter-spacing:0.5px;margin:0 0 12px;">RAW DATA ({len(raw_items)}건 · score / comments)</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:8px;overflow:hidden;">
+        {"".join(rows)}
+      </table>
+    </div>"""
+
+
+def _build_html(data: dict, raw_items: list[dict] | None = None) -> str:
     ideas = data.get("ideas", [])
     idea_sections_html = "".join(
         _render_card(idx, idea) for idx, idea in enumerate(ideas, start=1)
     )
+    raw_section_html = _render_raw_data(raw_items) if raw_items else ""
     today = date.today().strftime("%Y년 %m월 %d일")
 
     return f"""<!DOCTYPE html>
@@ -95,6 +130,7 @@ def _build_html(data: dict) -> str:
               1인 창업 관점으로 분석했습니다.
             </p>
             {idea_sections_html}
+            {raw_section_html}
           </div>
 
           <!-- 푸터 -->
@@ -110,7 +146,7 @@ def _build_html(data: dict) -> str:
 </html>"""
 
 
-def send(data: dict) -> None:
+def send(data: dict, raw_items: list[dict] | None = None) -> None:
     resend.api_key = RESEND_API_KEY
 
     today_str = date.today().strftime("%Y-%m-%d")
@@ -121,7 +157,7 @@ def send(data: dict) -> None:
             "from": SENDER_EMAIL,
             "to": [RECEIVER_EMAIL],
             "subject": subject,
-            "html": _build_html(data),
+            "html": _build_html(data, raw_items=raw_items),
         }
         response = resend.Emails.send(params)
         print(f"[SUCCESS] 메일 발송 완료 → {RECEIVER_EMAIL} (id: {response['id']})")

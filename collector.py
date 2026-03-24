@@ -11,9 +11,16 @@ RETRY_DELAY = 5     # 429 재시도 대기 (초)
 HEADERS = {"User-Agent": "ddalkkak/1.0 (MVP collector)"}
 
 
-def fetch_subreddit(subreddit: str) -> list[dict]:
-    url = f"https://www.reddit.com/r/{subreddit}/top.json"
-    params = {"t": "day", "limit": LIMIT}
+def fetch_subreddit(subreddit: str, sort: str = "hot") -> list[dict]:
+    if sort == "top":
+        url = f"https://www.reddit.com/r/{subreddit}/top.json"
+        params = {"limit": LIMIT, "t": "day"}
+    elif sort == "new":
+        url = f"https://www.reddit.com/r/{subreddit}/new.json"
+        params = {"limit": LIMIT}
+    else:
+        url = f"https://www.reddit.com/r/{subreddit}/hot.json"
+        params = {"limit": LIMIT}
 
     try:
         resp = requests.get(url, headers=HEADERS, params=params, timeout=10)
@@ -38,27 +45,26 @@ def fetch_subreddit(subreddit: str) -> list[dict]:
             "selftext": (d.get("selftext") or "")[:500],
             "score": d.get("score", 0),
             "num_comments": d.get("num_comments", 0),
-            "url": d.get("url", ""),
-            "created_utc": int(d.get("created_utc", 0)),
-            "upvote_ratio": d.get("upvote_ratio", 0.0),
             "subreddit": d.get("subreddit", subreddit),
             "permalink": f"https://reddit.com{d.get('permalink', '')}",
+            "created_utc": int(d.get("created_utc", 0)),
+            "upvote_ratio": d.get("upvote_ratio", 0.0),
         })
 
     return posts
 
 
-def collect() -> dict:
+def collect(sort: str = "hot") -> dict:
     all_posts = []
     counts = []
 
     for i, sub in enumerate(SUBREDDITS):
-        posts = fetch_subreddit(sub)
+        posts = fetch_subreddit(sub, sort=sort)
         all_posts.extend(posts)
         counts.append(f"r/{sub}: {len(posts)}건")
 
         if i < len(SUBREDDITS) - 1:
             time.sleep(REQUEST_DELAY)
 
-    print(f"수집 완료 — {', '.join(counts)} | 총 {len(all_posts)}건")
+    print(f"[COLLECT] ({sort}) {', '.join(counts)} | 총 {len(all_posts)}건")
     return {"reddit": all_posts}

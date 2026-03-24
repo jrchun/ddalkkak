@@ -3,9 +3,12 @@ import sys
 import time
 
 from collector import collect
+from validator import validate
 from analyzer import analyze
 from test_runner import run_tests
 from mailer import send
+
+SORT_STRATEGIES = ["hot", "top", "new"]
 
 
 def _save_collected(data: dict) -> None:
@@ -21,27 +24,33 @@ def _load_last_output() -> dict:
 def main():
     start = time.time()
 
-    # ── 1. 수집 ─────────────────────────────────────────────────────────
+    # ── 1. 수집 + 검증 (재수집 루프) ──────────────────────────────────
     print("[1/4] 레딧 상위 포스트 수집 중...")
-    try:
-        collected = collect()
-    except Exception as e:
-        print(f"[ERROR] 수집 실패: {e}")
+    validated = None
+
+    for sort in SORT_STRATEGIES:
+        try:
+            collected = collect(sort=sort)
+        except Exception as e:
+            print(f"[ERROR] 수집 실패 ({sort}): {e}")
+            continue
+
+        _save_collected(collected)
+        validated = validate(collected)
+
+        if validated["valid"]:
+            print(f"      정렬={sort}, {validated['filtered_count']}건 선별 완료")
+            break
+
+        print(f"      정렬={sort} 수집량 부족 — 다음 전략 시도")
+    else:
+        print("[ERROR] 3회 수집 모두 실패. 파이프라인 중단.")
         sys.exit(1)
-
-    reddit_count = len(collected.get("reddit", []))
-    print(f"      레딧 {reddit_count}건 수집 완료")
-
-    if reddit_count == 0:
-        print("[ERROR] 수집된 데이터가 없어 파이프라인을 종료합니다.")
-        sys.exit(1)
-
-    _save_collected(collected)
 
     # ── 2. 분석 ─────────────────────────────────────────────────────────
     print("[2/4] Claude 분석 중...")
     try:
-        result = analyze(collected)
+        result = analyze(validated)
     except Exception as e:
         print(f"[ERROR] 분석 실패: {e}")
         sys.exit(1)
@@ -60,10 +69,9 @@ def main():
         success = run_improve_loop()
 
         if not success:
-            print("[ERROR] 3회 개선 후에도 검증 실패. 메일 발송을 중단합니다.")
+            print("[ERROR] 개선 후에도 검증 실패. 메일 발송을 중단합니다.")
             sys.exit(1)
 
-        # 개선 후 갱신된 결과 로드
         result = _load_last_output()
         titles = [idea.get("title", "") for idea in result.get("ideas", [])]
         print(f"      개선 완료: {' / '.join(titles)}")
@@ -71,7 +79,7 @@ def main():
     # ── 4. 발송 ─────────────────────────────────────────────────────────
     print("[4/4] 메일 발송 중...")
     try:
-        send(result)
+        send(result, raw_items=validated.get("reddit", []))
     except Exception as e:
         print(f"[ERROR] 메일 발송 실패: {e}")
         sys.exit(1)
