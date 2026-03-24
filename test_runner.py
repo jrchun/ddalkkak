@@ -108,8 +108,20 @@ def run_tests() -> dict:
 
     # ── HTML 렌더링 검증 ────────────────────────────────────────────────
     try:
+        import json as _json
+        from pathlib import Path as _Path
         from mailer import _build_html
-        html = _build_html(data)
+
+        raw_items = []
+        if _Path("last_collected.json").exists():
+            try:
+                with open("last_collected.json", encoding="utf-8") as _f:
+                    _collected = _json.load(_f)
+                raw_items = _collected.get("reddit", [])
+            except Exception:
+                pass
+
+        html = _build_html(data, raw_items=raw_items)
 
         has_md = "**" in html
         checks.append({
@@ -125,9 +137,17 @@ def run_tests() -> dict:
             "detail": "" if card_count == len(ideas)
                       else f"카드 {card_count}개 / 아이디어 {len(ideas)}개",
         })
+
+        has_raw = "RAW DATA" in html
+        checks.append({
+            "name": "RAW DATA 섹션 포함",
+            "passed": has_raw,
+            "detail": "" if has_raw else "last_collected.json 없거나 reddit 데이터 없음",
+        })
     except Exception as e:
         checks.append({"name": "HTML 마크다운 없음", "passed": False, "detail": str(e)})
         checks.append({"name": "아이디어 카드 독립 렌더링", "passed": False, "detail": "HTML 렌더링 실패로 스킵"})
+        checks.append({"name": "RAW DATA 섹션 포함", "passed": False, "detail": "HTML 렌더링 실패로 스킵"})
 
     return _save_report(checks, data)
 
